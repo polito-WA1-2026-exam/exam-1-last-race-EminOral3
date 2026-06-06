@@ -1,27 +1,23 @@
-// imports
 import express from 'express';
 import morgan from 'morgan';
 import cors from 'cors';
 import session from 'express-session';
 
+import { getNetwork } from './dao/network-dao.js';
+
 const app = express();
 const PORT = 3001;
 
 // --- Middleware ---
-app.use(morgan('dev'));          // request logging in the console
-app.use(express.json());         // parse JSON request bodies
+app.use(morgan('dev'));
+app.use(express.json());
 
-// CORS: the "two servers" pattern. The React dev server runs on a different
-// origin (:5173) and must be allowed to send the session cookie, so we set a
-// specific origin (not "*") together with credentials: true.
 const corsOptions = {
   origin: 'http://localhost:5173',
   credentials: true,
 };
 app.use(cors(corsOptions));
 
-// Session middleware. Passport will plug into this in a later phase; for now
-// it just sets up the cookie-based session machinery.
 app.use(session({
   secret: 'last-race-change-this-secret',
   resave: false,
@@ -29,9 +25,20 @@ app.use(session({
 }));
 
 // --- Routes ---
-// Smoke-test endpoint: lets the client verify the connection and CORS setup.
 app.get('/api/hello', (req, res) => {
   res.json({ message: 'Last Race server is up and running!' });
+});
+
+// Full network map for the Setup phase.
+// NOTE: this will be protected (login required) in Phase 3, since anonymous
+// users must not see the map.
+app.get('/api/network', async (req, res) => {
+  try {
+    const network = await getNetwork();
+    res.json(network);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error while loading the network.' });
+  }
 });
 
 // --- Start server ---
