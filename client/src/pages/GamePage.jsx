@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Spinner, Alert } from 'react-bootstrap';
 import AuthContext from '../contexts/AuthContext.js';
@@ -11,7 +11,8 @@ function GamePage() {
 
   const [phase, setPhase] = useState('setup'); // setup | planning | execution | result
   const [network, setNetwork] = useState(null);
-  const [game, setGame] = useState(null);       // planning data from POST /api/games
+  const [game, setGame] = useState(null);
+  const [submittedRoute, setSubmittedRoute] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
@@ -41,21 +42,41 @@ function GamePage() {
     }
   };
 
+  // Stable callback so PlanningPhase's timer effect does not re-create itself.
+  const handleSubmitRoute = useCallback((route) => {
+    setSubmittedRoute(route);
+    setPhase('execution');
+  }, []);
+
   if (!user) return <Navigate replace to="/login" />;
   if (loading) return <div className="text-center py-5"><Spinner animation="border" /></div>;
   if (error) return <Alert variant="danger">{error}</Alert>;
 
+  // Temporary execution view: shows the submitted route (real execution next phase).
+  const renderSubmitted = () => {
+    if (!submittedRoute || submittedRoute.length === 0) {
+      return <Alert variant="warning">No route was submitted (you will score zero).</Alert>;
+    }
+    const nameById = new Map(game.stations.map((s) => [s.id, s.name]));
+    const path = [nameById.get(submittedRoute[0][0]),
+                  ...submittedRoute.map(([, to]) => nameById.get(to))];
+    return (
+      <Alert variant="info">
+        Submitted route ({submittedRoute.length} segments): {path.join(' → ')}.
+        Execution and scoring come in the next phase.
+      </Alert>
+    );
+  };
+
   return (
     <>
       {phase === 'setup' && (
-        <SetupPhase
-          network={network}
-          onReady={startPlanning}
-          starting={starting}
-          error={startError}
-        />
+        <SetupPhase network={network} onReady={startPlanning} starting={starting} error={startError} />
       )}
-      {phase === 'planning' && game && <PlanningPhase game={game} />}
+      {phase === 'planning' && game && (
+        <PlanningPhase game={game} onSubmit={handleSubmitRoute} />
+      )}
+      {phase === 'execution' && renderSubmitted()}
     </>
   );
 }
