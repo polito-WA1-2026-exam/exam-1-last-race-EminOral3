@@ -1,17 +1,47 @@
-// Base URL of the Express server. In the "two servers" pattern the client and
-// server live on different origins, so we always use absolute URLs and send the
-// session cookie via credentials: 'include'.
 const SERVER_URL = 'http://localhost:3001/api';
 
-async function getHello() {
-  const response = await fetch(`${SERVER_URL}/hello`, {
+// --- Authentication ---
+async function login(username, password) {
+  const response = await fetch(`${SERVER_URL}/sessions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ username, password }),
+  });
+  if (response.ok) {
+    return await response.json(); // the user object
+  }
+  const err = await response.json();
+  throw new Error(err.error || 'Login failed');
+}
+
+async function getCurrentUser() {
+  const response = await fetch(`${SERVER_URL}/sessions/current`, {
+    credentials: 'include',
+  });
+  if (response.ok) {
+    return await response.json();
+  }
+  return null; // not authenticated
+}
+
+async function logout() {
+  await fetch(`${SERVER_URL}/sessions/current`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+}
+
+// --- Network ---
+async function getNetwork() {
+  const response = await fetch(`${SERVER_URL}/network`, {
     credentials: 'include',
   });
   if (!response.ok) {
-    throw new Error('Server response not ok');
+    throw new Error('Failed to load the network');
   }
   return await response.json();
 }
 
-const API = { getHello };
+const API = { login, getCurrentUser, logout, getNetwork };
 export default API;
