@@ -1,23 +1,22 @@
 import { useContext, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Alert, Spinner } from 'react-bootstrap';
+import { Spinner, Alert } from 'react-bootstrap';
 import AuthContext from '../contexts/AuthContext.js';
 import API from '../API.js';
 import SetupPhase from '../components/SetupPhase.jsx';
+import PlanningPhase from '../components/PlanningPhase.jsx';
 
-// Orchestrates the four game phases. This phase implements Setup; the others
-// are added in later phases.
 function GamePage() {
   const { user } = useContext(AuthContext);
 
   const [phase, setPhase] = useState('setup'); // setup | planning | execution | result
   const [network, setNetwork] = useState(null);
+  const [game, setGame] = useState(null);       // planning data from POST /api/games
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState('');
 
-  // Load the full network for the Setup phase.
-  // The `ignore` flag makes this safe under React StrictMode (double-invoked
-  // effects in development): the first run's result is discarded on cleanup.
   useEffect(() => {
     let ignore = false;
     setLoading(true);
@@ -28,24 +27,35 @@ function GamePage() {
     return () => { ignore = true; };
   }, []);
 
-  // Only logged-in users can play.
-  if (!user) return <Navigate replace to="/login" />;
+  const startPlanning = async () => {
+    setStarting(true);
+    setStartError('');
+    try {
+      const data = await API.startGame();
+      setGame(data);
+      setPhase('planning');
+    } catch {
+      setStartError('Could not start the game. Please try again.');
+    } finally {
+      setStarting(false);
+    }
+  };
 
-  if (loading) {
-    return <div className="text-center py-5"><Spinner animation="border" /></div>;
-  }
-  if (error) {
-    return <Alert variant="danger">{error}</Alert>;
-  }
+  if (!user) return <Navigate replace to="/login" />;
+  if (loading) return <div className="text-center py-5"><Spinner animation="border" /></div>;
+  if (error) return <Alert variant="danger">{error}</Alert>;
 
   return (
     <>
       {phase === 'setup' && (
-        <SetupPhase network={network} onReady={() => setPhase('planning')} />
+        <SetupPhase
+          network={network}
+          onReady={startPlanning}
+          starting={starting}
+          error={startError}
+        />
       )}
-      {phase === 'planning' && (
-        <Alert variant="info">Planning phase will be implemented in the next phase.</Alert>
-      )}
+      {phase === 'planning' && game && <PlanningPhase game={game} />}
     </>
   );
 }

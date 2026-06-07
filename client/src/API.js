@@ -9,7 +9,7 @@ async function login(username, password) {
     body: JSON.stringify({ username, password }),
   });
   if (response.ok) {
-    return await response.json(); // the user object
+    return await response.json();
   }
   const err = await response.json();
   throw new Error(err.error || 'Login failed');
@@ -22,7 +22,7 @@ async function getCurrentUser() {
   if (response.ok) {
     return await response.json();
   }
-  return null; // not authenticated
+  return null;
 }
 
 async function logout() {
@@ -43,5 +43,20 @@ async function getNetwork() {
   return await response.json();
 }
 
-const API = { login, getCurrentUser, logout, getNetwork };
+// --- Games ---
+async function startGame() {
+  const response = await fetch(`${SERVER_URL}/games`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({}),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Could not start a new game');
+  }
+  return await response.json();
+}
+
+const API = { login, getCurrentUser, logout, getNetwork, startGame };
 export default API;

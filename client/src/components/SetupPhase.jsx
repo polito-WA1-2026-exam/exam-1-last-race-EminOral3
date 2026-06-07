@@ -1,8 +1,7 @@
-import { Button } from 'react-bootstrap';
+import { Button, Alert } from 'react-bootstrap';
 import NetworkMap from './NetworkMap.jsx';
 
-// First game phase: the player studies the full network before planning.
-function SetupPhase({ network, onReady }) {
+function SetupPhase({ network, onReady, starting, error }) {
   return (
     <div>
       <h2 className="mb-3">Setup — study the map</h2>
@@ -12,7 +11,10 @@ function SetupPhase({ network, onReady }) {
         90 seconds.
       </p>
       <NetworkMap stations={network.stations} lines={network.lines} showLines />
-      <Button size="lg" onClick={onReady}>I&apos;m ready — start planning</Button>
+      {error && <Alert variant="danger">{error}</Alert>}
+      <Button size="lg" onClick={onReady} disabled={starting}>
+        {starting ? 'Starting...' : "I'm ready — start planning"}
+      </Button>
     </div>
   );
 }

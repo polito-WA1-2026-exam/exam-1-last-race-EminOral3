@@ -5,14 +5,15 @@ import session from 'express-session';
 import passport from 'passport';
 import LocalStrategy from 'passport-local';
 
-import { getNetwork } from './dao/network-dao.js';
+import { getNetwork, getStations, getLines } from './dao/network-dao.js';
 import { getUser, getUserById } from './dao/user-dao.js';
+import { createGame } from './dao/game-dao.js';
+import { chooseStartAndDest, listSegments } from './game-logic.js';
 
 const app = express();
 const PORT = 3001;
 
 // --- Passport configuration ---
-// Verify the username/password pair against the database.
 passport.use(new LocalStrategy(async (username, password, callback) => {
   try {
     const user = await getUser(username, password);
@@ -25,12 +26,10 @@ passport.use(new LocalStrategy(async (username, password, callback) => {
   }
 }));
 
-// Only the user id is stored in the session cookie's server-side session.
 passport.serializeUser((user, callback) => {
   callback(null, user.id);
 });
 
-// On each request, rebuild req.user from the stored id.
 passport.deserializeUser(async (id, callback) => {
   try {
     const user = await getUserById(id);
@@ -57,14 +56,12 @@ app.use(session({
 }));
 app.use(passport.authenticate('session'));
 
-// Guard for routes that require a logged-in user.
 function isLoggedIn(req, res, next) {
   if (req.isAuthenticated()) return next();
   return res.status(401).json({ error: 'Not authenticated' });
 }
 
 // --- Authentication routes ---
-// Login
 app.post('/api/sessions', (req, res, next) => {
   passport.authenticate('local', (err, user, info) => {
     if (err) return next(err);
@@ -76,13 +73,11 @@ app.post('/api/sessions', (req, res, next) => {
   })(req, res, next);
 });
 
-// Who am I? (used by the client on startup to restore the session)
 app.get('/api/sessions/current', (req, res) => {
   if (req.isAuthenticated()) res.json(req.user);
   else res.status(401).json({ error: 'Not authenticated' });
 });
 
-// Logout
 app.delete('/api/sessions/current', (req, res) => {
   req.logout(() => res.status(200).end());
 });
@@ -92,13 +87,48 @@ app.get('/api/hello', (req, res) => {
   res.json({ message: 'Last Race server is up and running!' });
 });
 
-// Now protected: anonymous users must not see the map.
+// Full network for the Setup phase (login required: anonymous users can't see the map).
 app.get('/api/network', isLoggedIn, async (req, res) => {
   try {
     const network = await getNetwork();
     res.json(network);
   } catch (err) {
     res.status(500).json({ error: 'Database error while loading the network.' });
+  }
+});
+
+// Start a new game: the server assigns start/destination (shortest path >= 3)
+// and returns the planning data. It deliberately omits all line information and
+// the interchange flag, so the client cannot reconstruct the map for free.
+app.post('/api/games', isLoggedIn, async (req, res) => {
+  try {
+    const stations = await getStations();
+    const lines = await getLines();
+
+    const { startId, destId } = chooseStartAndDest(stations, lines, 3);
+    const gameId = await createGame(req.user.id, startId, destId);
+
+    const byId = new Map(stations.map((s) => [s.id, s]));
+    const pick = (s) => ({ id: s.id, name: s.name, x: s.x, y: s.y });
+
+    const segments = listSegments(lines)
+      .map((seg) => ({
+        from: { id: seg.a, name: byId.get(seg.a).name },
+        to: { id: seg.b, name: byId.get(seg.b).name },
+      }))
+      .sort((p, q) =>
+        p.from.name.localeCompare(q.from.name) || p.to.name.localeCompare(q.to.name)
+      );
+
+    res.json({
+      gameId,
+      start: pick(byId.get(startId)),
+      destination: pick(byId.get(destId)),
+      stations: stations.map((s) => ({ id: s.id, name: s.name, x: s.x, y: s.y })),
+      segments,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not start a new game.' });
   }
 });
 
