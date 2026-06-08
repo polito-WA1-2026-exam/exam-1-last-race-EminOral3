@@ -5,6 +5,8 @@ import AuthContext from '../contexts/AuthContext.js';
 import API from '../API.js';
 import SetupPhase from '../components/SetupPhase.jsx';
 import PlanningPhase from '../components/PlanningPhase.jsx';
+import ExecutionPhase from '../components/ExecutionPhase.jsx';
+import ResultPhase from '../components/ResultPhase.jsx';
 
 function GamePage() {
   const { user } = useContext(AuthContext);
@@ -47,33 +49,23 @@ function GamePage() {
     try {
       const res = await API.submitRoute(game.gameId, route);
       setResult(res);
+      // Valid routes are animated in Execution; invalid ones skip straight to Result.
+      setPhase(res.valid ? 'execution' : 'result');
     } catch {
-      setResult({ valid: false, score: 0, steps: [], error: true });
+      setResult({ valid: false, score: 0, steps: [], serverError: true });
+      setPhase('result');
     }
-    setPhase('execution');
   }, [game]);
+
+  const newGame = () => {
+    setGame(null);
+    setResult(null);
+    setPhase('setup');
+  };
 
   if (!user) return <Navigate replace to="/login" />;
   if (loading) return <div className="text-center py-5"><Spinner animation="border" /></div>;
   if (error) return <Alert variant="danger">{error}</Alert>;
-
-  const renderResult = () => {
-    if (!result) return <Spinner animation="border" />;
-    if (result.error) return <Alert variant="danger">Could not submit the route.</Alert>;
-    if (!result.valid) {
-      return <Alert variant="warning">Invalid or incomplete route — score: 0 coins.</Alert>;
-    }
-    return (
-      <Alert variant="success">
-        Valid route! Final score: <strong>{result.score}</strong> coins.{' '}
-        {result.steps.map((s, i) => (
-          <span key={i}>
-            [{s.from.name} → {s.to.name}: {s.event.effect >= 0 ? '+' : ''}{s.event.effect} → {s.coins}]{' '}
-          </span>
-        ))}
-      </Alert>
-    );
-  };
 
   return (
     <>
@@ -83,7 +75,16 @@ function GamePage() {
       {phase === 'planning' && game && (
         <PlanningPhase game={game} onSubmit={handleSubmitRoute} />
       )}
-      {phase === 'execution' && renderResult()}
+      {phase === 'execution' && result && (
+        <ExecutionPhase
+          result={result}
+          stations={game.stations}
+          onDone={() => setPhase('result')}
+        />
+      )}
+      {phase === 'result' && result && (
+        <ResultPhase result={result} onNewGame={newGame} />
+      )}
     </>
   );
 }
