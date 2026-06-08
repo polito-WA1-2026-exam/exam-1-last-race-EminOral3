@@ -7,29 +7,27 @@ import LocalStrategy from 'passport-local';
 
 import { getNetwork, getStations, getLines } from './dao/network-dao.js';
 import { getUser, getUserById } from './dao/user-dao.js';
-import { createGame } from './dao/game-dao.js';
-import { chooseStartAndDest, listSegments } from './game-logic.js';
+import { createGame, getGameById, finishGame, getEvents } from './dao/game-dao.js';
+import {
+  chooseStartAndDest, listSegments, buildAdjacency, validateRoute, executeRoute,
+} from './game-logic.js';
 
 const app = express();
 const PORT = 3001;
+const STARTING_COINS = 20;
 
 // --- Passport configuration ---
 passport.use(new LocalStrategy(async (username, password, callback) => {
   try {
     const user = await getUser(username, password);
-    if (!user) {
-      return callback(null, false, { message: 'Incorrect username or password.' });
-    }
+    if (!user) return callback(null, false, { message: 'Incorrect username or password.' });
     return callback(null, user);
   } catch (err) {
     return callback(err);
   }
 }));
 
-passport.serializeUser((user, callback) => {
-  callback(null, user.id);
-});
-
+passport.serializeUser((user, callback) => callback(null, user.id));
 passport.deserializeUser(async (id, callback) => {
   try {
     const user = await getUserById(id);
@@ -42,13 +40,7 @@ passport.deserializeUser(async (id, callback) => {
 // --- Middleware ---
 app.use(morgan('dev'));
 app.use(express.json());
-
-const corsOptions = {
-  origin: 'http://localhost:5173',
-  credentials: true,
-};
-app.use(cors(corsOptions));
-
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 app.use(session({
   secret: 'last-race-change-this-secret',
   resave: false,
@@ -83,23 +75,16 @@ app.delete('/api/sessions/current', (req, res) => {
 });
 
 // --- Game routes ---
-app.get('/api/hello', (req, res) => {
-  res.json({ message: 'Last Race server is up and running!' });
-});
-
-// Full network for the Setup phase (login required: anonymous users can't see the map).
 app.get('/api/network', isLoggedIn, async (req, res) => {
   try {
-    const network = await getNetwork();
-    res.json(network);
+    res.json(await getNetwork());
   } catch (err) {
     res.status(500).json({ error: 'Database error while loading the network.' });
   }
 });
 
-// Start a new game: the server assigns start/destination (shortest path >= 3)
-// and returns the planning data. It deliberately omits all line information and
-// the interchange flag, so the client cannot reconstruct the map for free.
+// Start a new game: assign start/destination (shortest path >= 3) and return
+// planning data WITHOUT any line/interchange information.
 app.post('/api/games', isLoggedIn, async (req, res) => {
   try {
     const stations = await getStations();
@@ -129,6 +114,55 @@ app.post('/api/games', isLoggedIn, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Could not start a new game.' });
+  }
+});
+
+// Submit a route: validate it server-side, apply random events, score it and
+// store the result. The server trusts only the start/destination it stored.
+app.post('/api/games/:id/route', isLoggedIn, async (req, res) => {
+  try {
+    const gameId = Number(req.params.id);
+    const game = await getGameById(gameId);
+
+    // Ownership + state checks.
+    if (!game || game.user_id !== req.user.id) {
+      return res.status(404).json({ error: 'Game not found.' });
+    }
+    if (game.status !== 'in_progress') {
+      return res.status(409).json({ error: 'This game has already been completed.' });
+    }
+
+    const stations = await getStations();
+    const lines = await getLines();
+    const adj = buildAdjacency(lines);
+    const byId = new Map(stations.map((s) => [s.id, s]));
+
+    const validation = validateRoute(
+      req.body?.route, game.start_station_id, game.dest_station_id, adj
+    );
+
+    if (!validation.valid) {
+      await finishGame(gameId, 'failed', 0);
+      return res.json({ valid: false, score: 0, steps: [] });
+    }
+
+    const route = req.body.route.map(([a, b]) => ({
+      from: { id: a, name: byId.get(a).name },
+      to: { id: b, name: byId.get(b).name },
+    }));
+    const events = await getEvents();
+    const { steps, finalScore } = executeRoute(route, STARTING_COINS, events);
+    await finishGame(gameId, 'completed', finalScore);
+
+    res.json({
+      valid: true,
+      score: finalScore,
+      start: { id: game.start_station_id, name: byId.get(game.start_station_id).name },
+      destination: { id: game.dest_station_id, name: byId.get(game.dest_station_id).name },
+      steps,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not process the route.' });
   }
 });
 

@@ -58,5 +58,19 @@ async function startGame() {
   return await response.json();
 }
 
-const API = { login, getCurrentUser, logout, getNetwork, startGame };
+async function submitRoute(gameId, route) {
+  const response = await fetch(`${SERVER_URL}/games/${gameId}/route`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ route }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Could not submit the route');
+  }
+  return await response.json();
+}
+
+const API = { login, getCurrentUser, logout, getNetwork, startGame, submitRoute };
 export default API;

@@ -12,7 +12,7 @@ function GamePage() {
   const [phase, setPhase] = useState('setup'); // setup | planning | execution | result
   const [network, setNetwork] = useState(null);
   const [game, setGame] = useState(null);
-  const [submittedRoute, setSubmittedRoute] = useState(null);
+  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
@@ -34,6 +34,7 @@ function GamePage() {
     try {
       const data = await API.startGame();
       setGame(data);
+      setResult(null);
       setPhase('planning');
     } catch {
       setStartError('Could not start the game. Please try again.');
@@ -42,28 +43,34 @@ function GamePage() {
     }
   };
 
-  // Stable callback so PlanningPhase's timer effect does not re-create itself.
-  const handleSubmitRoute = useCallback((route) => {
-    setSubmittedRoute(route);
+  const handleSubmitRoute = useCallback(async (route) => {
+    try {
+      const res = await API.submitRoute(game.gameId, route);
+      setResult(res);
+    } catch {
+      setResult({ valid: false, score: 0, steps: [], error: true });
+    }
     setPhase('execution');
-  }, []);
+  }, [game]);
 
   if (!user) return <Navigate replace to="/login" />;
   if (loading) return <div className="text-center py-5"><Spinner animation="border" /></div>;
   if (error) return <Alert variant="danger">{error}</Alert>;
 
-  // Temporary execution view: shows the submitted route (real execution next phase).
-  const renderSubmitted = () => {
-    if (!submittedRoute || submittedRoute.length === 0) {
-      return <Alert variant="warning">No route was submitted (you will score zero).</Alert>;
+  const renderResult = () => {
+    if (!result) return <Spinner animation="border" />;
+    if (result.error) return <Alert variant="danger">Could not submit the route.</Alert>;
+    if (!result.valid) {
+      return <Alert variant="warning">Invalid or incomplete route — score: 0 coins.</Alert>;
     }
-    const nameById = new Map(game.stations.map((s) => [s.id, s.name]));
-    const path = [nameById.get(submittedRoute[0][0]),
-                  ...submittedRoute.map(([, to]) => nameById.get(to))];
     return (
-      <Alert variant="info">
-        Submitted route ({submittedRoute.length} segments): {path.join(' → ')}.
-        Execution and scoring come in the next phase.
+      <Alert variant="success">
+        Valid route! Final score: <strong>{result.score}</strong> coins.{' '}
+        {result.steps.map((s, i) => (
+          <span key={i}>
+            [{s.from.name} → {s.to.name}: {s.event.effect >= 0 ? '+' : ''}{s.event.effect} → {s.coins}]{' '}
+          </span>
+        ))}
       </Alert>
     );
   };
@@ -76,7 +83,7 @@ function GamePage() {
       {phase === 'planning' && game && (
         <PlanningPhase game={game} onSubmit={handleSubmitRoute} />
       )}
-      {phase === 'execution' && renderSubmitted()}
+      {phase === 'execution' && renderResult()}
     </>
   );
 }

@@ -68,3 +68,52 @@ export function listSegments(lines) {
     return { a, b };
   });
 }
+
+// Validate an ordered list of segment pairs [[fromId, toId], ...] against the
+// network. The route is valid iff it is a contiguous walk of real edges from
+// startId to destId that never reuses a segment. (The "line change only at
+// interchange" rule is automatically satisfied: switching lines is only
+// physically possible at a station served by both lines, i.e. an interchange.)
+export function validateRoute(routePairs, startId, destId, adj) {
+  if (!Array.isArray(routePairs) || routePairs.length === 0) {
+    return { valid: false, reason: 'empty' };
+  }
+  const usedKeys = new Set();
+  let current = startId;
+  for (const pair of routePairs) {
+    if (!Array.isArray(pair) || pair.length !== 2) return { valid: false, reason: 'malformed' };
+    const a = Number(pair[0]);
+    const b = Number(pair[1]);
+    let next;
+    if (a === current) next = b;
+    else if (b === current) next = a;
+    else return { valid: false, reason: 'not-contiguous' };
+    if (!adj.has(a) || !adj.get(a).has(b)) return { valid: false, reason: 'no-such-segment' };
+    const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+    if (usedKeys.has(key)) return { valid: false, reason: 'repeated-segment' };
+    usedKeys.add(key);
+    current = next;
+  }
+  if (current !== destId) return { valid: false, reason: 'wrong-destination' };
+  return { valid: true };
+}
+
+// Apply a random event to each segment of a (valid) route.
+//  - route: [{ from:{id,name}, to:{id,name} }, ...]
+//  - rng: injectable random in [0,1) (defaults to Math.random) for testability.
+// The running coin total may go negative mid-journey; the final score is
+// clamped to zero if negative.
+export function executeRoute(route, startCoins, events, rng = Math.random) {
+  let coins = startCoins;
+  const steps = route.map((seg) => {
+    const event = events[Math.floor(rng() * events.length)];
+    coins += event.effect;
+    return {
+      from: seg.from,
+      to: seg.to,
+      event: { description: event.description, effect: event.effect },
+      coins,
+    };
+  });
+  return { steps, finalScore: Math.max(0, coins) };
+}
