@@ -45,3 +45,17 @@ export async function finishGame(id, status, score) {
 export async function getEvents() {
   return all('SELECT id, description, effect FROM events');
 }
+
+// General ranking: the best score per user, among finalised games only.
+export async function getRanking() {
+  return all(
+    `SELECT u.id, u.username, u.name,
+            MAX(g.score) AS bestScore,
+            COUNT(g.id)  AS gamesPlayed
+     FROM users u
+     JOIN games g ON g.user_id = u.id
+     WHERE g.status IN ('completed', 'failed')
+     GROUP BY u.id, u.username, u.name
+     ORDER BY bestScore DESC, u.name ASC`
+  );
+}

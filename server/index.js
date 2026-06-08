@@ -7,7 +7,7 @@ import LocalStrategy from 'passport-local';
 
 import { getNetwork, getStations, getLines } from './dao/network-dao.js';
 import { getUser, getUserById } from './dao/user-dao.js';
-import { createGame, getGameById, finishGame, getEvents } from './dao/game-dao.js';
+import { createGame, getGameById, finishGame, getEvents, getRanking } from './dao/game-dao.js';
 import {
   chooseStartAndDest, listSegments, buildAdjacency, validateRoute, executeRoute,
 } from './game-logic.js';
@@ -163,6 +163,15 @@ app.post('/api/games/:id/route', isLoggedIn, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Could not process the route.' });
+  }
+});
+
+// General ranking (best score per user). Registered users only.
+app.get('/api/ranking', isLoggedIn, async (req, res) => {
+  try {
+    res.json(await getRanking());
+  } catch (err) {
+    res.status(500).json({ error: 'Could not load the ranking.' });
   }
 });
 

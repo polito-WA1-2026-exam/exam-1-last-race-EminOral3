@@ -72,5 +72,15 @@ async function submitRoute(gameId, route) {
   return await response.json();
 }
 
-const API = { login, getCurrentUser, logout, getNetwork, startGame, submitRoute };
+
+// --- Ranking ---
+async function getRanking() {
+  const response = await fetch(`${SERVER_URL}/ranking`, { credentials: 'include' });
+  if (!response.ok) {
+    throw new Error('Failed to load the ranking');
+  }
+  return await response.json();
+}
+
+const API = { login, getCurrentUser, logout, getNetwork, startGame, submitRoute, getRanking };
 export default API;
