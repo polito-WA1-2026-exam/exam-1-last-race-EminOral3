@@ -10,7 +10,7 @@ function HomePage() {
     <div>
       <h1 className="mb-3">Last Race</h1>
       <p className="lead">
-        Plan a route across the Old Harbour underground and reach your
+        Plan a route across the Istanbul metro network and reach your
         destination with as many coins as you can before time runs out.
       </p>
 

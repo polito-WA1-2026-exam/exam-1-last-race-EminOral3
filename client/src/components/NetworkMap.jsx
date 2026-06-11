@@ -20,11 +20,13 @@ function NetworkMap({
 
   const xs = stations.map((s) => s.x);
   const ys = stations.map((s) => s.y);
-  const pad = 70;
-  const minX = Math.min(...xs) - pad;
-  const minY = Math.min(...ys) - pad;
-  const width = Math.max(...xs) - Math.min(...xs) + 2 * pad;
-  const height = Math.max(...ys) - Math.min(...ys) + 2 * pad;
+  const padX = 40;
+  const padY = 60;
+  const labelSpace = 170; // extra room on the right for station labels
+  const minX = Math.min(...xs) - padX;
+  const minY = Math.min(...ys) - padY;
+  const width = Math.max(...xs) - Math.min(...xs) + padX + labelSpace;
+  const height = Math.max(...ys) - Math.min(...ys) + 2 * padY;
 
   // Group lines by segment so that segments shared by several lines can be drawn
   // as parallel, perpendicularly offset strokes (topology-agnostic).
