@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Row, Col, Card, Badge, ListGroup, Button, Alert, ProgressBar } from 'react-bootstrap';
+import { Row, Col, Card, Badge, ListGroup, Button, ProgressBar } from 'react-bootstrap';
 import NetworkMap from './NetworkMap.jsx';
 
 const PLANNING_SECONDS = 90;
@@ -12,27 +12,19 @@ function segKey(a, b) {
 function PlanningPhase({ game, onSubmit }) {
   const { start, destination, stations, segments } = game;
 
-  const [route, setRoute] = useState([]);  // ordered [{from:{id,name}, to:{id,name}}] in travel direction
+  const [route, setRoute] = useState([]); // ordered selected segments [{from:{id,name}, to:{id,name}}]
   const [remaining, setRemaining] = useState(PLANNING_SECONDS);
-  // Fixed deadline -> the countdown is drift-free and survives re-renders.
+  // Fixed deadline -> drift-free countdown that survives re-renders.
   const [deadline] = useState(() => Date.now() + PLANNING_SECONDS * 1000);
 
   const submittedRef = useRef(false);
   const routeRef = useRef(route);
   routeRef.current = route;
 
-  const nameById = useMemo(() => {
-    const m = new Map();
-    stations.forEach((s) => m.set(s.id, s.name));
-    return m;
-  }, [stations]);
-
-  const currentEnd = route.length === 0 ? start.id : route[route.length - 1].to.id;
   const usedKeys = useMemo(
     () => new Set(route.map((seg) => segKey(seg.from.id, seg.to.id))),
     [route]
   );
-  const isComplete = route.length > 0 && currentEnd === destination.id;
 
   // Submit once (manual click or timeout). Reads the latest route via ref.
   const doSubmit = useCallback(() => {
@@ -57,21 +49,13 @@ function PlanningPhase({ game, onSubmit }) {
     return () => clearInterval(id);
   }, [deadline, doSubmit]);
 
-  const canSelect = (seg) => {
-    if (usedKeys.has(segKey(seg.from.id, seg.to.id))) return false;
-    return seg.from.id === currentEnd || seg.to.id === currentEnd;
-  };
-
+  // Free selection: the player may add ANY not-yet-used segment, in the order
+  // they intend to travel it. Building a consistent path that starts at the
+  // start, ends at the destination and never reuses a segment is the player's
+  // responsibility; the server validates the whole sequence on submission.
   const addSegment = (seg) => {
-    let fromId;
-    let toId;
-    if (seg.from.id === currentEnd) { fromId = seg.from.id; toId = seg.to.id; }
-    else if (seg.to.id === currentEnd) { fromId = seg.to.id; toId = seg.from.id; }
-    else return;
-    setRoute((r) => [...r, {
-      from: { id: fromId, name: nameById.get(fromId) },
-      to: { id: toId, name: nameById.get(toId) },
-    }]);
+    if (usedKeys.has(segKey(seg.from.id, seg.to.id))) return;
+    setRoute((r) => [...r, { from: seg.from, to: seg.to }]);
   };
 
   const removeLast = () => setRoute((r) => r.slice(0, -1));
@@ -85,15 +69,12 @@ function PlanningPhase({ game, onSubmit }) {
         <h2 className="mb-0">Planning</h2>
         <Badge bg={timerVariant} style={{ fontSize: '1.1rem' }}>{remaining}s</Badge>
       </div>
-      <ProgressBar
-        now={(remaining / PLANNING_SECONDS) * 100}
-        variant={timerVariant}
-        className="mb-3"
-      />
+      <ProgressBar now={(remaining / PLANNING_SECONDS) * 100} variant={timerVariant} className="mb-3" />
       <p>
-        From <Badge bg="success">{start.name}</Badge> to{' '}
-        <Badge bg="danger">{destination.name}</Badge>. You are at{' '}
-        <Badge bg="primary">{nameById.get(currentEnd)}</Badge>.
+        Build a route from <Badge bg="success">{start.name}</Badge> to{' '}
+        <Badge bg="danger">{destination.name}</Badge> by selecting the connections
+        in the order you would travel them. The route is checked when you submit
+        (or when the time runs out).
       </p>
 
       <Row>
@@ -105,15 +86,13 @@ function PlanningPhase({ game, onSubmit }) {
             startId={start.id}
             destId={destination.id}
             routeSegments={routeSegments}
-            currentId={currentEnd}
           />
         </Col>
         <Col md={5}>
           <Card className="mb-3">
             <Card.Header className="d-flex justify-content-between align-items-center">
-              <span>Your route ({route.length})</span>
-              <Button variant="outline-secondary" size="sm"
-                      onClick={removeLast} disabled={route.length === 0}>
+              <span>Selected segments ({route.length})</span>
+              <Button variant="outline-secondary" size="sm" onClick={removeLast} disabled={route.length === 0}>
                 Undo last
               </Button>
             </Card.Header>
@@ -121,33 +100,26 @@ function PlanningPhase({ game, onSubmit }) {
               {route.length === 0 ? (
                 <span className="text-muted">No segments selected yet.</span>
               ) : (
-                <div>
-                  {start.name}
+                <ol className="mb-0 ps-3">
                   {route.map((seg, i) => (
-                    <span key={i}> → {seg.to.name}</span>
+                    <li key={i}>{seg.from.name} — {seg.to.name}</li>
                   ))}
-                </div>
-              )}
-              {isComplete && (
-                <Alert variant="success" className="mt-2 mb-0 py-2">
-                  Route complete — you can submit.
-                </Alert>
+                </ol>
               )}
             </Card.Body>
           </Card>
 
           <Card>
-            <Card.Header>Connections — tap the next segment</Card.Header>
-            <ListGroup variant="flush" style={{ maxHeight: '320px', overflowY: 'auto' }}>
+            <Card.Header>Connections — tap to add (in travel order)</Card.Header>
+            <ListGroup variant="flush" style={{ maxHeight: '300px', overflowY: 'auto' }}>
               {segments.map((seg) => {
                 const used = usedKeys.has(segKey(seg.from.id, seg.to.id));
-                const selectable = canSelect(seg);
                 return (
                   <ListGroup.Item
                     key={`${seg.from.id}-${seg.to.id}`}
-                    action={selectable}
-                    disabled={!selectable}
-                    onClick={() => selectable && addSegment(seg)}
+                    action={!used}
+                    disabled={used}
+                    onClick={() => !used && addSegment(seg)}
                     className={used ? 'text-decoration-line-through text-muted' : ''}
                   >
                     {seg.from.name} — {seg.to.name}
@@ -158,12 +130,8 @@ function PlanningPhase({ game, onSubmit }) {
           </Card>
 
           <div className="d-grid mt-3">
-            <Button
-              variant={isComplete ? 'primary' : 'outline-primary'}
-              size="lg"
-              onClick={doSubmit}
-            >
-              Submit route{!isComplete && ' (incomplete = 0 coins)'}
+            <Button variant="primary" size="lg" onClick={doSubmit} disabled={route.length === 0}>
+              Submit route
             </Button>
           </div>
         </Col>
