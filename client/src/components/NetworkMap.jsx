@@ -1,5 +1,7 @@
 import { Card } from 'react-bootstrap';
 
+const LINE_SPACING = 5; // perpendicular gap between lines that share a segment
+
 // Renders the underground network as an SVG (declarative; no DOM manipulation).
 //  - showLines: draw the coloured lines (Setup) or hide them (Planning).
 //  - startId/destId: highlight the assigned stations (green/red).
@@ -24,6 +26,20 @@ function NetworkMap({
   const width = Math.max(...xs) - Math.min(...xs) + 2 * pad;
   const height = Math.max(...ys) - Math.min(...ys) + 2 * pad;
 
+  // Group lines by segment so that segments shared by several lines can be drawn
+  // as parallel, perpendicularly offset strokes (topology-agnostic).
+  const segmentColors = new Map(); // key "a-b" (a<b) -> { a, b, colors: [...] }
+  for (const line of lines) {
+    const seq = line.stations;
+    for (let i = 0; i + 1 < seq.length; i++) {
+      const a = Math.min(seq[i], seq[i + 1]);
+      const b = Math.max(seq[i], seq[i + 1]);
+      const key = `${a}-${b}`;
+      if (!segmentColors.has(key)) segmentColors.set(key, { a, b, colors: [] });
+      segmentColors.get(key).colors.push(line.color);
+    }
+  }
+
   return (
     <Card className="mb-3">
       <Card.Body>
@@ -34,26 +50,29 @@ function NetworkMap({
           role="img"
           aria-label="Underground network map"
         >
-          {/* Coloured lines (Setup only), drawn first. */}
+          {/* Coloured lines (Setup only): one stroke per line per segment, with
+              parallel offset where several lines share the same segment. */}
           {showLines &&
-            lines.map((line) => {
-              const points = line.stations
-                .map((sid) => byId.get(sid))
-                .filter(Boolean)
-                .map((s) => `${s.x},${s.y}`)
-                .join(' ');
-              return (
-                <polyline
-                  key={line.id}
-                  points={points}
-                  fill="none"
-                  stroke={line.color}
-                  strokeWidth={6}
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  opacity={0.85}
-                />
-              );
+            [...segmentColors.values()].map((seg) => {
+              const A = byId.get(seg.a);
+              const B = byId.get(seg.b);
+              const dx = B.x - A.x;
+              const dy = B.y - A.y;
+              const len = Math.hypot(dx, dy) || 1;
+              const px = -dy / len; // perpendicular unit vector
+              const py = dx / len;
+              const n = seg.colors.length;
+              return seg.colors.map((color, k) => {
+                const off = (k - (n - 1) / 2) * LINE_SPACING;
+                return (
+                  <line
+                    key={`${seg.a}-${seg.b}-${k}`}
+                    x1={A.x + px * off} y1={A.y + py * off}
+                    x2={B.x + px * off} y2={B.y + py * off}
+                    stroke={color} strokeWidth={5} strokeLinecap="round" opacity={0.9}
+                  />
+                );
+              });
             })}
 
           {/* Route built so far (highlighted edges). */}
