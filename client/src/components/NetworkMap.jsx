@@ -28,6 +28,25 @@ function NetworkMap({
   const width = Math.max(...xs) - Math.min(...xs) + padX + labelSpace;
   const height = Math.max(...ys) - Math.min(...ys) + 2 * padY;
 
+  // Decorative Bosphorus strait running vertically through the city. Purely
+  // ambient (drawn behind the network) to convey the Istanbul setting; it
+  // carries no connectivity information, so it is safe to show in every phase.
+  const bosL = 478;  // left shoreline base x
+  const bosR = 546;  // right shoreline base x
+  const bosAmp = 9;  // shoreline wave amplitude
+  const bosTop = minY;
+  const bosBot = minY + height;
+  const bosQ1 = minY + height * 0.25;
+  const bosMid = minY + height * 0.5;
+  const bosQ3 = minY + height * 0.75;
+  const bosPath =
+    `M ${bosL},${bosTop} Q ${bosL - bosAmp},${bosQ1} ${bosL},${bosMid} ` +
+    `Q ${bosL + bosAmp},${bosQ3} ${bosL},${bosBot} ` +
+    `L ${bosR},${bosBot} Q ${bosR + bosAmp},${bosQ3} ${bosR},${bosMid} ` +
+    `Q ${bosR - bosAmp},${bosQ1} ${bosR},${bosTop} Z`;
+  const bosRipples = [bosQ1, bosMid, bosQ3];
+
+
   // Group lines by segment so that segments shared by several lines can be drawn
   // as parallel, perpendicularly offset strokes (topology-agnostic).
   const segmentColors = new Map(); // key "a-b" (a<b) -> { a, b, colors: [...] }
@@ -52,6 +71,33 @@ function NetworkMap({
           role="img"
           aria-label="Underground network map"
         >
+          {/* Decorative Bosphorus strait (ambient backdrop, behind everything). */}
+          <defs>
+            <linearGradient id="bosphorus" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#cfe7f5" />
+              <stop offset="100%" stopColor="#a9d3ec" />
+            </linearGradient>
+          </defs>
+          <g aria-hidden="true">
+            <path d={bosPath} fill="url(#bosphorus)" opacity={0.55} />
+            {bosRipples.map((ry, i) => (
+              <path
+                key={`ripple-${i}`}
+                d={`M ${bosL + 6},${ry} q 8,-5 16,0 t 16,0 t 16,0`}
+                fill="none" stroke="#ffffff" strokeWidth={1.5} opacity={0.4}
+              />
+            ))}
+            <text
+              x={(bosL + bosR) / 2} y={bosMid}
+              transform={`rotate(-90 ${(bosL + bosR) / 2} ${bosMid})`}
+              textAnchor="middle" fontSize={16} fill="#2b6ea3" opacity={0.5}
+              style={{ userSelect: 'none', letterSpacing: 4 }}
+            >
+              Boğaziçi
+            </text>
+          </g>
+
+
           {/* Coloured lines (Setup only): one stroke per line per segment, with
               parallel offset where several lines share the same segment. */}
           {showLines &&

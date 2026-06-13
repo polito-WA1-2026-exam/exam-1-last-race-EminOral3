@@ -43,18 +43,18 @@ const lineRoutes = {
 };
 
 const events = [
-  { description: 'Smooth ride, the train glides in right on time.',        effect: 0 },
-  { description: 'You spot a coin glinting on the platform and pocket it.', effect: 1 },
-  { description: 'A busker plays beautifully; you tip them happily.',       effect: -1 },
-  { description: 'A kind commuter hands you a spare day pass.',             effect: 3 },
-  { description: 'A pickpocket strikes in the crowded carriage!',          effect: -3 },
-  { description: 'Signal failure: a long delay drains your patience.',      effect: -2 },
-  { description: 'You stumble into an empty first-class seat by mistake.',  effect: 2 },
-  { description: 'You doze off, miss your stop and have to backtrack.',     effect: -2 },
-  { description: 'The conductor waives your fare with a wink.',             effect: 2 },
-  { description: 'A wildcat strike forces you into a pricey taxi.',         effect: -4 },
-  { description: 'You return a lost wallet and earn a generous reward.',    effect: 4 },
-  { description: 'A quiet, uneventful stretch of tunnel.',                  effect: 0 },
+  { description: 'Smooth ride — the metro glides into the station right on time.', effect: 0 },
+  { description: 'You find an Istanbulkart with a little credit still on it.',     effect: 1 },
+  { description: 'The smell wins: you grab a warm simit from a platform vendor.',  effect: -1 },
+  { description: 'A kind local taps their Istanbulkart to cover your fare.',       effect: 3 },
+  { description: 'A pickpocket works the packed carriage near Taksim!',            effect: -3 },
+  { description: 'Signal failure on the line; a long, patience-draining delay.',   effect: -2 },
+  { description: 'You sprint and catch the connecting train with seconds to spare.', effect: 2 },
+  { description: 'Lulled by the ride, you miss your stop and have to double back.', effect: -2 },
+  { description: 'The fare inspector waves you through with a friendly smile.',    effect: 2 },
+  { description: 'A sudden transit strike forces you into a pricey cross-city taxi.', effect: -4 },
+  { description: 'You return a lost wallet to a commuter and earn a warm reward.',  effect: 4 },
+  { description: 'A quiet, uneventful glide through the tunnel.',                   effect: 0 },
 ];
 
 const users = [
