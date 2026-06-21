@@ -3,6 +3,10 @@ import { Navbar, Nav, Container, Button } from 'react-bootstrap';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import AuthContext from '../contexts/AuthContext.js';
 
+// The navigation bar at the top of the page reads the user from the AuthContext and displays different links depending on 
+// whether the user is logged in or not: Play + Ranking + Logout if logged in, and just the Login button if logged out. 
+// It hides the Login button on the login page using `useLocation` (to avoid unnecessary repetition).
+
 function NavHeader() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -12,6 +16,11 @@ function NavHeader() {
     await logout();
     navigate('/');
   };
+
+  // In the NavBar (NavHeader.jsx), only the "Login" button is visible. 
+  // The "Play" and "Ranking" links are hidden by the {user && ...} code — 
+  // they are not shown because user is null. If you try to go to /game or /ranking, 
+  // the <Navigate replace to="/login" /> command will be activated and you will be redirected to the login page.
 
   return (
     <Navbar bg="dark" variant="dark" expand="md">

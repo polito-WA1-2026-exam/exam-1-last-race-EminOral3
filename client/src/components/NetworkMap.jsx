@@ -47,8 +47,8 @@ function NetworkMap({
   const bosRipples = [bosQ1, bosMid, bosQ3];
 
 
-  // Group lines by segment so that segments shared by several lines can be drawn
-  // as parallel, perpendicularly offset strokes (topology-agnostic).
+  // Pre-process: group line colors by segment key "a-b" (a<b).
+  // Segments shared by N lines get N parallel offset strokes.
   const segmentColors = new Map(); // key "a-b" (a<b) -> { a, b, colors: [...] }
   for (const line of lines) {
     const seq = line.stations;
@@ -107,7 +107,9 @@ function NetworkMap({
               const dx = B.x - A.x;
               const dy = B.y - A.y;
               const len = Math.hypot(dx, dy) || 1;
-              const px = -dy / len; // perpendicular unit vector
+              // Perpendicular unit vector. Offset = (k - (n-1)/2) * LINE_SPACING
+              // centres the parallel strokes symmetrically around the segment midline.
+              const px = -dy / len; 
               const py = dx / len;
               const n = seg.colors.length;
               return seg.colors.map((color, k) => {
@@ -146,6 +148,8 @@ function NetworkMap({
             let stroke = '#333333';
             if (isStart) { fill = '#198754'; stroke = '#0f5132'; }
             else if (isDest) { fill = '#dc3545'; stroke = '#842029'; }
+            // Interchange stations are drawn larger. In Planning, stations lack the
+            // interchange flag (server withholds it), so all circles render at r=6.
             const r = s.interchange ? 10 : 6;
             return (
               <g key={s.id}>

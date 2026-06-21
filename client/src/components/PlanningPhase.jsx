@@ -14,9 +14,12 @@ function PlanningPhase({ game, onSubmit }) {
 
   const [route, setRoute] = useState([]); // ordered selected segments [{from:{id,name}, to:{id,name}}]
   const [remaining, setRemaining] = useState(PLANNING_SECONDS);
-  // Fixed deadline -> drift-free countdown that survives re-renders.
+  // Lazy initializer: deadline is fixed at mount, not recalculated on re-renders.
+  // Drift-free: remaining time is always computed from the fixed deadline vs Date.now().
   const [deadline] = useState(() => Date.now() + PLANNING_SECONDS * 1000);
 
+  // Guard against double-submission (timer expiry and manual submit racing).
+  // A ref is used instead of state because it updates synchronously.
   const submittedRef = useRef(false);
   const routeRef = useRef(route);
   routeRef.current = route;

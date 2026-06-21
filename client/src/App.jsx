@@ -24,10 +24,12 @@ function Layout() {
 }
 
 function App() {
+  // user state lives here and is passed down via AuthContext.Provider.
   const [user, setUser] = useState(null);        // null = anonymous
   const [authLoading, setAuthLoading] = useState(true);
 
   // On startup, ask the server whether there is an active session.
+  // The ignore flag prevents a stale setState in React StrictMode (effects run twice in dev).
   useEffect(() => {
     API.getCurrentUser()
       .then((u) => setUser(u))
@@ -50,6 +52,7 @@ function App() {
   if (authLoading) return null;
 
   return (
+    // Provide user + setter to every component in the tree.
     <AuthContext.Provider value={{ user, login, logout }}>
       <Routes>
         <Route element={<Layout />}>
@@ -58,9 +61,11 @@ function App() {
             path="/login"
             element={user ? <Navigate replace to="/" /> : <LoginForm />}
           />
+          {/* /game is the full game flow (setup→planning→execution→result) in one route. */}
+          {/*  No reload between phases — phase state lives in GamePage.*/}
           <Route path="/game" element={<GamePage />} />
           <Route path="/ranking" element={<RankingPage />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<NotFound />} />  {/* Catch-all: any unknown path shows NotFound.*/}
         </Route>
       </Routes>
     </AuthContext.Provider>

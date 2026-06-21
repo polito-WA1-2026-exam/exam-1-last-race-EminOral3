@@ -33,7 +33,8 @@ export async function getNetwork() {
   const stations = await getStations();
   const lines = await getLines();
 
-  // interchange = station served by more than one line
+  // The interchange flag is not stored in the DB; it is derived here from
+  // line membership — a station on more than one line is an interchange.
   const lineCount = {};
   for (const line of lines) {
     for (const sid of line.stations) {

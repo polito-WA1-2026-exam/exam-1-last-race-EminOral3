@@ -11,6 +11,8 @@ import ResultPhase from '../components/ResultPhase.jsx';
 function GamePage() {
   const { user } = useContext(AuthContext);
 
+  // Phase state machine: setup → planning → execution → result.
+  // All four phases live in one route to avoid losing state on reload.
   const [phase, setPhase] = useState('setup'); // setup | planning | execution | result
   const [network, setNetwork] = useState(null);
   const [game, setGame] = useState(null);
@@ -20,6 +22,11 @@ function GamePage() {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState('');
 
+  // Load the network once on mount. The ignore flag is the StrictMode guard:
+  // dev mode runs effects twice; the first result is discarded on cleanup.
+  
+  //useEffect runs, GET /api/network request is sent:
+  //Server (index.js → network-dao.js): 
   useEffect(() => {
     let ignore = false;
     setLoading(true);
@@ -30,6 +37,8 @@ function GamePage() {
     return () => { ignore = true; };
   }, []);
 
+  // Transition setup→planning: server assigns start/dest and returns segment list.
+  // when the user clicks "I'm ready", "startPlanning" is called.
   const startPlanning = async () => {
     setStarting(true);
     setStartError('');
@@ -45,6 +54,8 @@ function GamePage() {
     }
   };
 
+  // Wrapped in useCallback so PlanningPhase's timer effect does not re-run
+  // on every render (the callback is a dependency of that effect).
   const handleSubmitRoute = useCallback(async (route) => {
     try {
       const res = await API.submitRoute(game.gameId, route);
@@ -57,6 +68,7 @@ function GamePage() {
     }
   }, [game]);
 
+  // Reset all game state and go back to setup (shows the network map again).
   const newGame = () => {
     setGame(null);
     setResult(null);

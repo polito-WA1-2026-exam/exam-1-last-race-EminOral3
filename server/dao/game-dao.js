@@ -1,5 +1,7 @@
 import db from '../db.js';
 
+// Wraps db.run in a Promise. Uses a regular function (not arrow) so that
+// `this.lastID` is accessible — arrow functions don't bind their own `this`.
 function run(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.run(sql, params, function (err) {
@@ -9,6 +11,7 @@ function run(sql, params = []) {
   });
 }
 
+// Wraps db.get (single row) and db.all (multiple rows) in Promises.
 function get(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)));

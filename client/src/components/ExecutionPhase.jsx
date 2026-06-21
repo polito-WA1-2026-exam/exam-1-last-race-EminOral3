@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Card, ListGroup, Badge, Button, Row, Col } from 'react-bootstrap';
 import NetworkMap from './NetworkMap.jsx';
 
+// Delay between step reveals. setTimeout chain (not setInterval) so each
+// reveal is tied to the React render cycle and cleanup works cleanly.
 const STEP_DELAY_MS = 1200;
 const STARTING_COINS = 20;
 
@@ -9,8 +11,12 @@ const STARTING_COINS = 20;
 // and the updated coin total, while the route is drawn progressively on the map.
 function ExecutionPhase({ result, stations, onDone }) {
   const { steps, start, destination } = result;
+  // Single source of truth: coins, currentId, and routeSegments are all
+  // derived from this index — no separate state needed.
   const [revealed, setRevealed] = useState(0);
 
+  // Advance revealed by 1 each tick. Returns cleanup so StrictMode's double
+  // invocation doesn't leave a dangling timeout.
   // Reveal one more step every STEP_DELAY_MS until all are shown (StrictMode-safe).
   useEffect(() => {
     if (revealed >= steps.length) return undefined;
@@ -18,6 +24,7 @@ function ExecutionPhase({ result, stations, onDone }) {
     return () => clearTimeout(id);
   }, [revealed, steps.length]);
 
+  // Derive current display values from revealed index.
   const coins = revealed === 0 ? STARTING_COINS : steps[revealed - 1].coins;
   const currentId = revealed === 0 ? start.id : steps[revealed - 1].to.id;
   const routeSegments = steps.slice(0, revealed).map((s) => [s.from.id, s.to.id]);

@@ -1,6 +1,9 @@
 import { Button, Alert } from 'react-bootstrap';
 import NetworkMap from './NetworkMap.jsx';
 
+// The first phase of the game. It displays the complete network map (including lines and interchanges) in NetworkMap using showLines={true}. 
+// Pressing the "I'm ready" button triggers startPlanning on the GamePage, and the game enters the Planning phase.
+
 function SetupPhase({ network, onReady, starting, error }) {
   return (
     <div>

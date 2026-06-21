@@ -3,6 +3,11 @@ import { Button, Card, ListGroup } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import AuthContext from '../contexts/AuthContext.js';
 
+// The homepage is open to both guest and logged-in users. It lists the game rules. 
+// Below it: a "Start a new game" button if logged in, 
+// and a "You are browsing as a guest, log in to play" message if not logged in. 
+// This meets the Spec's "anonymous users see only instructions" clause.
+
 function HomePage() {
   const { user } = useContext(AuthContext);
 

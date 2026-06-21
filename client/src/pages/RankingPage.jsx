@@ -10,6 +10,8 @@ function RankingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Same StrictMode-safe ignore pattern as GamePage: prevents a stale setState
+  // if the effect is cleaned up before the fetch resolves.
   useEffect(() => {
     let ignore = false;
     setLoading(true);
@@ -20,6 +22,7 @@ function RankingPage() {
     return () => { ignore = true; };
   }, []);
 
+  // Protected page: redirect guests to login instead of rendering.
   if (!user) return <Navigate replace to="/login" />;
   if (loading) return <div className="text-center py-5"><Spinner animation="border" /></div>;
   if (error) return <Alert variant="danger">{error}</Alert>;

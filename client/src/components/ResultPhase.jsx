@@ -17,6 +17,8 @@ function CoinSparkline({ series }) {
   const maxV = Math.max(STARTING_COINS, ...series);
   const span = maxV - minV || 1;
 
+  // x: maps step index to horizontal position.
+  // y: maps coin value to vertical position (inverted: higher coins = lower y).
   const x = (i) => padX + (i / (series.length - 1)) * (W - 2 * padX);
   const y = (v) => padTop + (1 - (v - minV) / span) * (H - padTop - padBottom);
 
@@ -52,7 +54,13 @@ function CoinSparkline({ series }) {
 // Final screen: shows the score, a recap of the journey, and a new-game button.
 function ResultPhase({ result, onNewGame }) {
   const { valid, score, steps, start, destination, serverError } = result;
+  
+  // Recap is only shown for valid routes that have steps; invalid routes score
+  // zero and skip straight to the score card with no journey breakdown.
   const hasRecap = valid && Array.isArray(steps) && steps.length > 0;
+  
+  // series[0] = 20 (starting coins); each subsequent value is the running total
+  // after that segment's event, matching what ExecutionPhase displayed live.
   const series = hasRecap ? [STARTING_COINS, ...steps.map((s) => s.coins)] : [];
 
   return (

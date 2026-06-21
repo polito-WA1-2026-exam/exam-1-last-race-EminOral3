@@ -12,8 +12,10 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Controlled form submit: preventDefault stops the browser's default page reload.
+  // Client-side check runs before the network call to avoid a wasted request.
   const handleSubmit = async (event) => {
-    event.preventDefault();
+    event.preventDefault(); //The natural behavior of an HTML form is to refresh the page; this needs to be stopped
     setError('');
 
     if (!username.trim() || !password) {
@@ -23,6 +25,8 @@ function LoginForm() {
 
     setSubmitting(true);
     try {
+      // login() calls POST /api/sessions and updates AuthContext on success.
+      // On failure it throws, caught below and shown as an error message.
       await login(username.trim(), password);
       navigate('/');
     } catch (err) {
